@@ -43,7 +43,7 @@ const agents = [
     id: 'epsilon',
     name: 'Lorekeeper Runebeard',
     role: 'Narrative & Lore',
-    desc: 'An ancient scholarly dwarf with a long white beard adorned with glowing rune inscriptions, wearing ornate robes with embroidered mine symbols, holding an open leather-bound tome that emanates magical light, quill behind his ear'
+    desc: 'An ancient scholarly female dwarf with long flowing white hair braided with glowing rune beads, wearing ornate robes with embroidered mine symbols, holding an open leather-bound tome that emanates magical light, quill tucked behind her ear, wise and piercing eyes, intricate runic tattoos along her jawline'
   },
   {
     id: 'zeta',
@@ -99,18 +99,29 @@ async function main() {
   // Ensure output directory exists
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-  console.log(`\nGenerating ${agents.length} steampunk dwarf portraits...\n`);
+  // Optional CLI filter: node generate-portraits.mjs epsilon
+  const filterId = process.argv[2];
+  const targets = filterId
+    ? agents.filter(a => a.id === filterId)
+    : agents;
+
+  if (filterId && targets.length === 0) {
+    console.error(`No agent found with id "${filterId}". Available: ${agents.map(a => a.id).join(', ')}`);
+    process.exit(1);
+  }
+
+  console.log(`\nGenerating ${targets.length} steampunk dwarf portrait(s)...\n`);
 
   let success = 0;
   // Generate sequentially to respect rate limits
-  for (const agent of agents) {
+  for (const agent of targets) {
     const ok = await generatePortrait(agent);
     if (ok) success++;
     // Small delay between requests
     await new Promise(r => setTimeout(r, 1000));
   }
 
-  console.log(`\nDone: ${success}/${agents.length} portraits generated.`);
+  console.log(`\nDone: ${success}/${targets.length} portraits generated.`);
   console.log(`Output: ${OUTPUT_DIR}`);
 }
 
