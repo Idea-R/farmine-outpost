@@ -38,18 +38,26 @@ const specLabels: Record<string, string> = {
 };
 
 const specLabel = specLabels[specialization] || specialization;
+const portraitPath = `/images/agents/${agentId}.png`;
 ---
 
 <div class="card-hover p-5 flex flex-col gap-3 group">
-  <!-- Header: Emoji + Name -->
-  <div class="flex items-center gap-3">
-    <div class="w-12 h-12 rounded-full bg-mine-stone border-2 border-copper-dark/60 flex items-center justify-center text-2xl group-hover:border-copper transition-colors">
-      {emoji}
-    </div>
-    <div>
-      <h3 class="text-base font-heading text-gold leading-tight">{dwarvenName}</h3>
-      <p class="text-xs text-copper-dark">{displayName}</p>
-    </div>
+  <!-- Portrait -->
+  <div class="relative w-full aspect-square rounded-lg overflow-hidden mb-2 border border-copper-dark/30 group-hover:border-copper/60 transition-colors">
+    <img
+      src={portraitPath}
+      alt={`Portrait of ${dwarvenName}`}
+      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+      loading="lazy"
+    />
+    <div class="absolute inset-0 bg-gradient-to-t from-mine-deep/80 via-transparent to-transparent"></div>
+    <div class="absolute bottom-2 left-2 text-2xl drop-shadow-lg">{emoji}</div>
+  </div>
+
+  <!-- Header: Name -->
+  <div>
+    <h3 class="text-base font-heading text-gold leading-tight">{dwarvenName}</h3>
+    <p class="text-xs text-copper-dark">{displayName}</p>
   </div>
 
   <!-- Specialization -->
