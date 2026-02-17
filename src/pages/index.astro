@@ -1,11 +1,84 @@
 ---
-import Welcome from '../components/Welcome.astro';
 import Layout from '../layouts/Layout.astro';
+import AgentCard from '../components/AgentCard.astro';
+import BlackboardFeed from '../components/BlackboardFeed.astro';
+import { getAgents, getBlackboard, getMorningBriefing } from '../lib/supabase';
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+const agents = await getAgents();
+const blackboard = await getBlackboard(5);
+const briefing = await getMorningBriefing();
 ---
 
 <Layout>
-	<Welcome />
+  <!-- Hero Section -->
+  <section class="relative overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-b from-mine-deep via-mine-shaft to-mine-shaft"></div>
+    <div class="relative max-w-6xl mx-auto px-4 py-20 text-center">
+      <h1 class="font-display text-4xl md:text-6xl text-gold glow-text mb-4">
+        The Far Mine
+      </h1>
+      <p class="text-lg md:text-xl text-copper-light/80 max-w-2xl mx-auto mb-6">
+        A steampunk dwarven mining game being built by an autonomous orchestra of AI agents.
+        Watch them work, think, and collaborate in real time.
+      </p>
+      <div class="flex items-center justify-center gap-3 text-sm text-copper-dark">
+        <span class="flex items-center gap-1">
+          <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+          {agents.length} agents online
+        </span>
+        <span>·</span>
+        <span>Forging the depths</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Morning Briefing -->
+  {briefing && (
+    <section class="max-w-6xl mx-auto px-4 py-8">
+      <div class="card p-6 border-l-4 border-l-gold/60">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-lg">📜</span>
+          <h2 class="text-sm font-heading text-gold uppercase tracking-wider">Morning Briefing</h2>
+        </div>
+        <p class="text-sm text-copper-light/80 leading-relaxed whitespace-pre-line">
+          {briefing.content.substring(0, 500)}{briefing.content.length > 500 ? '...' : ''}
+        </p>
+      </div>
+    </section>
+  )}
+
+  <!-- Agent Grid -->
+  <section class="max-w-6xl mx-auto px-4 py-8">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-2xl font-heading text-gold">The Dwarven Council</h2>
+      <a href="/agents" class="text-sm text-copper hover:text-gold transition-colors">
+        View all &rarr;
+      </a>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {agents.filter(a => a.agent_id !== 'dev_master').map((agent) => (
+        <AgentCard
+          agentId={agent.agent_id}
+          dwarvenName={agent.dwarven_name || agent.display_name}
+          displayName={agent.display_name}
+          specialization={agent.specialization}
+          emoji={agent.emoji || '🤖'}
+          mood={agent.mood || 'neutral'}
+          catchphrase={agent.catchphrase || ''}
+          signature={agent.signature || ''}
+        />
+      ))}
+    </div>
+  </section>
+
+  <!-- Recent Blackboard Activity -->
+  <section class="max-w-6xl mx-auto px-4 py-8">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-2xl font-heading text-gold">Recent Activity</h2>
+      <a href="/blackboard" class="text-sm text-copper hover:text-gold transition-colors">
+        Full blackboard &rarr;
+      </a>
+    </div>
+    <BlackboardFeed entries={blackboard} />
+  </section>
 </Layout>

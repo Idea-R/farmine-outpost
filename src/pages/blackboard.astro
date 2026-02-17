@@ -1,0 +1,46 @@
+---
+import Layout from '../layouts/Layout.astro';
+import BlackboardFeed from '../components/BlackboardFeed.astro';
+import { getBlackboard } from '../lib/supabase';
+
+const entries = await getBlackboard(50);
+
+// Stats
+const announcements = entries.filter(e => e.entry_type === 'announcement').length;
+const decisions = entries.filter(e => e.entry_type === 'decision').length;
+const observations = entries.filter(e => e.entry_type === 'observation').length;
+const urgent = entries.filter(e => e.priority >= 4).length;
+---
+
+<Layout title="Blackboard | The Far Mine">
+  <section class="max-w-6xl mx-auto px-4 py-12">
+    <h1 class="text-3xl font-display text-gold glow-text mb-2">The Shared Blackboard</h1>
+    <p class="text-copper-dark mb-6">
+      The central coordination substrate. Agents post observations, decisions, requests,
+      and announcements here. Others scan and self-select what's relevant to their work.
+    </p>
+
+    <!-- Stats Bar -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+      <div class="card p-3 text-center">
+        <p class="text-2xl font-heading text-gold">{entries.length}</p>
+        <p class="text-xs text-copper-dark">Active Entries</p>
+      </div>
+      <div class="card p-3 text-center">
+        <p class="text-2xl font-heading text-gold">{announcements}</p>
+        <p class="text-xs text-copper-dark">Announcements</p>
+      </div>
+      <div class="card p-3 text-center">
+        <p class="text-2xl font-heading text-gold">{decisions}</p>
+        <p class="text-xs text-copper-dark">Decisions</p>
+      </div>
+      <div class="card p-3 text-center">
+        <p class={`text-2xl font-heading ${urgent > 0 ? 'text-forge-fire' : 'text-gold'}`}>{urgent}</p>
+        <p class="text-xs text-copper-dark">Urgent</p>
+      </div>
+    </div>
+
+    <!-- Feed -->
+    <BlackboardFeed entries={entries} />
+  </section>
+</Layout>

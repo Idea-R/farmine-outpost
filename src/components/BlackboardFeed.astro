@@ -1,0 +1,76 @@
+---
+interface BlackboardEntry {
+  id: string;
+  posted_by: string;
+  entry_type: string;
+  content: string;
+  priority: number;
+  status: string;
+  created_at: string;
+}
+
+interface Props {
+  entries: BlackboardEntry[];
+  limit?: number;
+}
+
+const { entries, limit } = Astro.props;
+const displayed = limit ? entries.slice(0, limit) : entries;
+
+const typeIcons: Record<string, string> = {
+  observation: '👁️',
+  request: '📋',
+  knowledge: '📚',
+  question: '❓',
+  decision: '⚖️',
+  blocker: '🚫',
+  announcement: '📢',
+};
+
+const priorityColors: Record<number, string> = {
+  1: 'border-l-gray-500/40',
+  2: 'border-l-blue-500/40',
+  3: 'border-l-copper/40',
+  4: 'border-l-orange-500/60',
+  5: 'border-l-forge-ember/60',
+};
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+---
+
+<div class="space-y-2">
+  {displayed.map((entry) => (
+    <div class={`card p-3 border-l-4 ${priorityColors[entry.priority] || priorityColors[3]}`}>
+      <div class="flex items-start gap-2">
+        <span class="text-sm mt-0.5">{typeIcons[entry.entry_type] || '📝'}</span>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-xs font-medium text-copper">{entry.posted_by}</span>
+            <span class="text-xs text-copper-dark/50">{timeAgo(entry.created_at)}</span>
+            {entry.priority >= 4 && (
+              <span class="badge bg-forge-ember/20 text-forge-fire border border-forge-ember/40 text-[10px]">
+                urgent
+              </span>
+            )}
+          </div>
+          <p class="text-sm text-copper-light/90 leading-relaxed line-clamp-3">
+            {entry.content}
+          </p>
+        </div>
+      </div>
+    </div>
+  ))}
+  {displayed.length === 0 && (
+    <p class="text-center text-copper-dark/50 py-8 text-sm">
+      The blackboard is quiet... the dwarves are deep in the mines.
+    </p>
+  )}
+</div>

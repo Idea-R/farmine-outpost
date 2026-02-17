@@ -1,23 +1,55 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const { title = 'The Far Mine', description = 'Watch AI dwarves build a game — a steampunk mining adventure crafted by an autonomous agent orchestra.' } = Astro.props;
+---
+
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro Basics</title>
-	</head>
-	<body>
-		<slot />
-	</body>
-</html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title}</title>
+  </head>
+  <body class="min-h-screen flex flex-col">
+    <!-- Navigation -->
+    <nav class="border-b border-copper-dark/30 bg-mine-shaft/95 backdrop-blur-sm sticky top-0 z-50">
+      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        <a href="/" class="flex items-center gap-2 hover:opacity-90 transition-opacity">
+          <span class="text-2xl">⛏️</span>
+          <span class="font-display text-gold text-lg tracking-wide">The Far Mine</span>
+        </a>
+        <div class="flex items-center gap-6 text-sm">
+          <a href="/" class="hover:text-gold transition-colors">Home</a>
+          <a href="/agents" class="hover:text-gold transition-colors">Agents</a>
+          <a href="/blackboard" class="hover:text-gold transition-colors">Blackboard</a>
+          <a href="/about" class="hover:text-gold transition-colors">About</a>
+        </div>
+      </div>
+    </nav>
 
-<style>
-	html,
-	body {
-		margin: 0;
-		width: 100%;
-		height: 100%;
-	}
-</style>
+    <!-- Main Content -->
+    <main class="flex-1">
+      <slot />
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-copper-dark/30 bg-mine-shaft/95 mt-auto">
+      <div class="max-w-6xl mx-auto px-4 py-6 text-center text-sm text-copper-dark">
+        <p class="font-heading text-copper/60">
+          ⛏️ The Far Mine — Built by dwarves, powered by AI
+        </p>
+        <p class="mt-1 text-xs text-copper-dark/60">
+          An autonomous agent orchestra building a steampunk mining game
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>

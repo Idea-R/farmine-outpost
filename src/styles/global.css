@@ -1,0 +1,59 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cinzel+Decorative:wght@400;700&family=Source+Code+Pro:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-mine-shaft text-copper-light font-body antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-heading text-gold;
+  }
+
+  a {
+    @apply text-copper hover:text-copper-glow transition-colors;
+  }
+
+  ::selection {
+    @apply bg-copper/30 text-gold-bright;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-mine-shaft;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-copper-dark rounded;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-mine-deep/80 border border-copper-dark/40 rounded-lg backdrop-blur-sm;
+  }
+
+  .card-hover {
+    @apply card hover:border-copper/60 hover:shadow-lg hover:shadow-copper/10 transition-all duration-300;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-mood {
+    @apply badge bg-copper-dark/30 text-copper-light border border-copper-dark/50;
+  }
+
+  .glow-text {
+    text-shadow: 0 0 10px rgba(201, 125, 60, 0.5), 0 0 20px rgba(201, 125, 60, 0.2);
+  }
+
+  .forge-border {
+    border-image: linear-gradient(135deg, #8b5a2b, #c97d3c, #d4a456, #c97d3c, #8b5a2b) 1;
+  }
+}

@@ -1,0 +1,83 @@
+---
+import Layout from '../layouts/Layout.astro';
+import AgentCard from '../components/AgentCard.astro';
+import { getAgents, getRecentTasks } from '../lib/supabase';
+
+const agents = await getAgents();
+const tasks = await getRecentTasks(30);
+
+// Group tasks by agent
+const tasksByAgent = new Map<string, typeof tasks>();
+for (const task of tasks) {
+  const key = task.assigned_to || 'unassigned';
+  if (!tasksByAgent.has(key)) tasksByAgent.set(key, []);
+  tasksByAgent.get(key)!.push(task);
+}
+---
+
+<Layout title="Agents | The Far Mine">
+  <section class="max-w-6xl mx-auto px-4 py-12">
+    <h1 class="text-3xl font-display text-gold glow-text mb-2">The Dwarven Council</h1>
+    <p class="text-copper-dark mb-8">
+      Nine autonomous AI agents, each with their own personality, expertise, and purpose.
+      They think, collaborate, and build — guided by the DevMaster.
+    </p>
+
+    <!-- DevMaster -->
+    {agents.filter(a => a.agent_id === 'dev_master').map((agent) => (
+      <div class="mb-8">
+        <div class="card p-6 border border-gold/30">
+          <div class="flex items-center gap-4">
+            <div class="w-16 h-16 rounded-full bg-mine-stone border-2 border-gold/60 flex items-center justify-center text-3xl">
+              {agent.emoji || '👑'}
+            </div>
+            <div>
+              <h2 class="text-xl font-heading text-gold">{agent.dwarven_name || agent.display_name}</h2>
+              <p class="text-sm text-copper-dark">{agent.display_name} — Project Lead & Orchestrator</p>
+              <p class="text-xs text-copper-dark/60 mt-1 italic">"{agent.catchphrase}"</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    ))}
+
+    <!-- Agent Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {agents.filter(a => a.agent_id !== 'dev_master').map((agent) => (
+        <AgentCard
+          agentId={agent.agent_id}
+          dwarvenName={agent.dwarven_name || agent.display_name}
+          displayName={agent.display_name}
+          specialization={agent.specialization}
+          emoji={agent.emoji || '🤖'}
+          mood={agent.mood || 'neutral'}
+          catchphrase={agent.catchphrase || ''}
+          signature={agent.signature || ''}
+        />
+      ))}
+    </div>
+
+    <!-- Recent Tasks -->
+    <div class="mt-12">
+      <h2 class="text-2xl font-heading text-gold mb-6">Recent Tasks</h2>
+      <div class="space-y-2">
+        {tasks.slice(0, 15).map((task) => (
+          <div class="card p-3 flex items-center gap-3">
+            <span class={`w-2 h-2 rounded-full ${
+              task.status === 'completed' ? 'bg-green-500' :
+              task.status === 'in_progress' ? 'bg-yellow-500 animate-pulse' :
+              task.status === 'failed' ? 'bg-red-500' :
+              'bg-copper-dark/40'
+            }`}></span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm text-copper-light/90 truncate">{task.task_description}</p>
+              <p class="text-xs text-copper-dark/60">
+                {task.assigned_to || 'unassigned'} · {task.status}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+</Layout>

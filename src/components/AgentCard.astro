@@ -1,0 +1,80 @@
+---
+interface Props {
+  agentId: string;
+  dwarvenName: string;
+  displayName: string;
+  specialization: string;
+  emoji: string;
+  mood: string;
+  catchphrase: string;
+  signature: string;
+}
+
+const { agentId, dwarvenName, displayName, specialization, emoji, mood, catchphrase, signature } = Astro.props;
+
+const moodColors: Record<string, string> = {
+  focused: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
+  inspired: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
+  energized: 'bg-green-500/20 text-green-300 border-green-500/40',
+  determined: 'bg-orange-500/20 text-orange-300 border-orange-500/40',
+  contemplative: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40',
+  neutral: 'bg-copper-dark/20 text-copper-light border-copper-dark/40',
+  curious: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
+  welcoming: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+};
+
+const moodClass = moodColors[mood] || moodColors.neutral;
+
+const specLabels: Record<string, string> = {
+  core_architecture: 'Core Architecture',
+  world_generation: 'World Generation',
+  combat_systems: 'Combat Systems',
+  technology_tools: 'Technology & Tools',
+  narrative_lore: 'Narrative & Lore',
+  audio_atmosphere: 'Audio & Atmosphere',
+  visual_ui: 'Visual & UI',
+  community_social: 'Community & Social',
+  project_management: 'Project Management',
+};
+
+const specLabel = specLabels[specialization] || specialization;
+---
+
+<div class="card-hover p-5 flex flex-col gap-3 group">
+  <!-- Header: Emoji + Name -->
+  <div class="flex items-center gap-3">
+    <div class="w-12 h-12 rounded-full bg-mine-stone border-2 border-copper-dark/60 flex items-center justify-center text-2xl group-hover:border-copper transition-colors">
+      {emoji}
+    </div>
+    <div>
+      <h3 class="text-base font-heading text-gold leading-tight">{dwarvenName}</h3>
+      <p class="text-xs text-copper-dark">{displayName}</p>
+    </div>
+  </div>
+
+  <!-- Specialization -->
+  <div class="text-xs text-copper/80 font-medium uppercase tracking-wider">
+    {specLabel}
+  </div>
+
+  <!-- Mood Badge -->
+  <div class="flex items-center gap-2">
+    <span class={`badge ${moodClass} border text-xs`}>
+      {mood}
+    </span>
+  </div>
+
+  <!-- Catchphrase -->
+  {catchphrase && (
+    <p class="text-xs text-copper-dark/80 italic leading-relaxed mt-auto">
+      "{catchphrase}"
+    </p>
+  )}
+
+  <!-- Signature -->
+  {signature && (
+    <p class="text-xs text-copper-dark/50 mt-1">
+      — {signature}
+    </p>
+  )}
+</div>
