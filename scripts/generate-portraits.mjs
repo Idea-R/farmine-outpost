@@ -77,7 +77,7 @@ async function generatePortrait(agent) {
   console.log(`Generating portrait for ${agent.name} (${agent.id})...`);
   try {
     const response = await openai.images.generate({
-      model: 'gpt-image-1',
+      model: 'gpt-image-1.5',
       prompt: BASE_PROMPT + agent.desc,
       n: 1,
       size: '1024x1024',

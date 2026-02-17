@@ -1,0 +1,138 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getVaultTools, getVaultUsage, getAgents } from '../lib/supabase';
+
+const tools = await getVaultTools();
+const usage = await getVaultUsage(100);
+const agents = await getAgents();
+
+// Build agent name lookup
+const agentNames: Record<string, string> = {};
+for (const a of agents) {
+  agentNames[a.agent_id] = a.dwarven_name || a.display_name;
+}
+
+// Build tool name lookup
+const toolNames: Record<string, string> = {};
+for (const t of tools) {
+  toolNames[t.id] = t.name;
+}
+
+// Group tools by tier
+const tier1 = tools.filter((t: any) => t.tier === 1);
+const tier2 = tools.filter((t: any) => t.tier === 2);
+const tier3 = tools.filter((t: any) => t.tier === 3);
+
+// Aggregate usage stats
+const totalCheckouts = usage.reduce((sum: number, u: any) => sum + (u.count || 0), 0);
+const totalCost = usage.reduce((sum: number, u: any) => sum + (u.total_cost || 0), 0);
+const uniqueDates = [...new Set(usage.map((u: any) => u.date))];
+const todayStr = new Date().toISOString().split('T')[0];
+const todayUsage = usage.filter((u: any) => u.date === todayStr);
+
+const tierColors: Record<number, string> = {
+  1: 'border-green-500/40 bg-green-500/10',
+  2: 'border-copper/40 bg-copper/10',
+  3: 'border-forge-fire/40 bg-forge-fire/10'
+};
+
+const tierLabels: Record<number, string> = {
+  1: 'Tier 1 — Auto-Approved',
+  2: 'Tier 2 — DevMaster Judgment',
+  3: 'Tier 3 — Owner Approval'
+};
+
+const approvalIcons: Record<string, string> = {
+  none: '🟢',
+  devmaster: '🟡',
+  owner: '🔴'
+};
+---
+
+<Layout title="The Dwarven Vault — The Far Mine">
+  <div class="max-w-6xl mx-auto px-4 py-12">
+    <!-- Hero -->
+    <div class="text-center mb-12">
+      <h1 class="text-4xl font-heading text-gold mb-3">🔐 The Dwarven Vault</h1>
+      <p class="text-copper-dark text-lg max-w-2xl mx-auto">
+        Every tool the agents use must be checked out from the vault. DevMaster holds the Foreman Key;
+        costly tools require the Owner's Master Key.
+      </p>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12">
+      <div class="card p-5 text-center">
+        <div class="text-3xl font-heading text-gold">{tools.length}</div>
+        <div class="text-sm text-copper-dark mt-1">Registered Tools</div>
+      </div>
+      <div class="card p-5 text-center">
+        <div class="text-3xl font-heading text-gold">{totalCheckouts}</div>
+        <div class="text-sm text-copper-dark mt-1">Total Checkouts</div>
+      </div>
+      <div class="card p-5 text-center">
+        <div class="text-3xl font-heading text-gold">${totalCost.toFixed(2)}</div>
+        <div class="text-sm text-copper-dark mt-1">Total Cost</div>
+      </div>
+    </div>
+
+    <!-- Tool Registry -->
+    <h2 class="text-2xl font-heading text-gold mb-6">Tool Registry</h2>
+
+    {[1, 2, 3].map((tier) => {
+      const tierTools = tools.filter((t: any) => t.tier === tier);
+      if (tierTools.length === 0) return null;
+      return (
+        <div class="mb-8">
+          <h3 class="text-lg font-heading text-copper mb-3">
+            {approvalIcons[tier === 1 ? 'none' : tier === 2 ? 'devmaster' : 'owner']} {tierLabels[tier]}
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {tierTools.map((tool: any) => (
+              <div class={`card p-4 border ${tierColors[tier]}`}>
+                <div class="flex items-center justify-between mb-2">
+                  <span class="font-mono text-sm text-gold">{tool.id}</span>
+                  {tool.cost_per_use > 0 && (
+                    <span class="text-xs text-copper-dark">~${tool.cost_per_use}</span>
+                  )}
+                </div>
+                <div class="text-sm font-medium text-copper-light">{tool.name}</div>
+                <div class="text-xs text-copper-dark/70 mt-1">{tool.description}</div>
+                <div class="text-xs text-copper-dark/50 mt-2">
+                  Limit: {tool.daily_limit}/day per agent · {tool.global_daily_limit}/day global
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    })}
+
+    <!-- Recent Activity -->
+    <h2 class="text-2xl font-heading text-gold mb-6 mt-12">Recent Vault Activity</h2>
+
+    {usage.length === 0 ? (
+      <div class="card p-8 text-center text-copper-dark">
+        <p class="text-lg">The vault is quiet — no tools checked out yet.</p>
+        <p class="text-sm mt-2">Activity will appear here once agents begin using vault tools.</p>
+      </div>
+    ) : (
+      <div class="space-y-2">
+        {usage.slice(0, 30).map((u: any) => (
+          <div class="card p-3 flex items-center justify-between text-sm">
+            <div class="flex items-center gap-3">
+              <span class="text-copper-dark/60 font-mono text-xs">{u.date}</span>
+              <span class="text-gold font-medium">{agentNames[u.agent_id] || u.agent_id}</span>
+              <span class="text-copper-dark">→</span>
+              <span class="text-copper-light">{toolNames[u.tool_id] || u.tool_id}</span>
+            </div>
+            <div class="flex items-center gap-4 text-xs text-copper-dark">
+              <span>{u.count}x</span>
+              {u.total_cost > 0 && <span>${u.total_cost.toFixed(3)}</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</Layout>

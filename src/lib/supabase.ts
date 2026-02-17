@@ -59,3 +59,25 @@ export async function getMorningBriefing() {
   if (error && error.code !== 'PGRST116') console.error('Failed to fetch briefing:', error.message);
   return data || null;
 }
+
+// --- Vault fetchers ---
+
+export async function getVaultTools() {
+  const { data, error } = await supabase
+    .from('vault_tools')
+    .select('id, name, description, tier, cost_per_use, daily_limit, global_daily_limit, requires_approval, enabled')
+    .eq('enabled', true)
+    .order('tier');
+  if (error) console.error('Failed to fetch vault tools:', error.message);
+  return data || [];
+}
+
+export async function getVaultUsage(limit = 50) {
+  const { data, error } = await supabase
+    .from('vault_usage')
+    .select('agent_id, tool_id, date, count, total_cost')
+    .order('date', { ascending: false })
+    .limit(limit);
+  if (error) console.error('Failed to fetch vault usage:', error.message);
+  return data || [];
+}
