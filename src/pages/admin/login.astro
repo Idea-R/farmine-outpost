@@ -1,0 +1,84 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import { createSupabaseServer } from '../../lib/supabase-server';
+
+// If already logged in, redirect to dashboard
+const supabase = createSupabaseServer(Astro.request, Astro.cookies);
+const { data: { user } } = await supabase.auth.getUser();
+if (user) return Astro.redirect('/admin');
+
+// Handle POST login
+let error = '';
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const email = formData.get('email')?.toString() || '';
+  const password = formData.get('password')?.toString() || '';
+
+  const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (authError) {
+    error = authError.message;
+  } else {
+    return Astro.redirect('/admin');
+  }
+}
+---
+
+<Layout title="Command Chamber — The Far Mine">
+  <div class="min-h-[80vh] flex items-center justify-center px-4">
+    <div class="card p-8 w-full max-w-md">
+      <div class="text-center mb-8">
+        <div class="text-5xl mb-4">🔐</div>
+        <h1 class="text-3xl font-display text-gold glow-text mb-2">Command Chamber</h1>
+        <p class="text-copper-dark text-sm">Authorized personnel only. Identify yourself, mine-keeper.</p>
+      </div>
+
+      {error && (
+        <div class="bg-forge-ember/20 border border-forge-ember/40 rounded-lg p-3 mb-6 text-sm text-forge-fire text-center">
+          {error}
+        </div>
+      )}
+
+      <form method="POST" class="space-y-5">
+        <div>
+          <label for="email" class="block text-sm font-heading text-copper mb-1.5">Operator Dispatch</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            required
+            autocomplete="email"
+            class="w-full bg-mine-shaft border border-copper-dark/50 rounded-lg px-4 py-2.5 text-copper-light placeholder-copper-dark/40 focus:border-copper focus:outline-none focus:ring-1 focus:ring-copper/50 transition-colors"
+            placeholder="foreman@thefarmine.app"
+          />
+        </div>
+
+        <div>
+          <label for="password" class="block text-sm font-heading text-copper mb-1.5">Vault Key</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            required
+            autocomplete="current-password"
+            class="w-full bg-mine-shaft border border-copper-dark/50 rounded-lg px-4 py-2.5 text-copper-light placeholder-copper-dark/40 focus:border-copper focus:outline-none focus:ring-1 focus:ring-copper/50 transition-colors"
+            placeholder="••••••••••••"
+          />
+        </div>
+
+        <button
+          type="submit"
+          class="w-full bg-copper hover:bg-copper-glow text-mine-shaft font-heading font-semibold py-3 rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-copper/30"
+        >
+          ⛏️ Enter the Depths
+        </button>
+      </form>
+
+      <div class="mt-6 text-center">
+        <a href="/" class="text-xs text-copper-dark hover:text-copper transition-colors">← Return to surface</a>
+      </div>
+    </div>
+  </div>
+</Layout>

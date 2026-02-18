@@ -1,0 +1,85 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import { supabase } from '../../lib/supabase';
+
+// Get optional filter from query params
+const url = new URL(Astro.request.url);
+const filterAgent = url.searchParams.get('agent') || '';
+const filterType = url.searchParams.get('type') || '';
+
+let query = supabase.from('cycle_log').select('*').order('created_at', { ascending: false }).limit(100);
+if (filterAgent) query = query.eq('agent_id', filterAgent);
+if (filterType) query = query.eq('cycle_type', filterType);
+
+const { data: logs } = await query;
+
+const { data: agents } = await supabase
+  .from('agent_souls')
+  .select('agent_id, dwarven_name')
+  .order('agent_id');
+
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+const agentEmojis: Record<string, string> = {
+  alpha: '🏗️', beta: '🌍', gamma: '⚔️', delta: '🔧',
+  epsilon: '📖', zeta: '🎵', eta: '🎨', theta: '🍺', dev_master: '👁️'
+};
+---
+
+<Layout title="Activity Feed — The Far Mine Admin">
+  <div class="max-w-5xl mx-auto px-4 py-8">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-3xl font-display text-gold glow-text">📋 Activity Feed</h1>
+        <p class="text-copper-dark text-sm mt-1">Agent reasoning and cycle decisions</p>
+      </div>
+      <a href="/admin" class="text-sm text-copper hover:text-gold transition-colors">← Dashboard</a>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex items-center gap-3 mb-6 flex-wrap">
+      <a href="/admin/activity" class={`text-xs px-3 py-1.5 rounded border transition-all ${!filterAgent && !filterType ? 'border-copper text-gold bg-mine-stone' : 'border-copper-dark/30 text-copper-dark hover:border-copper/50'}`}>All</a>
+      {(agents || []).map(a => (
+        <a href={`/admin/activity?agent=${a.agent_id}`} class={`text-xs px-3 py-1.5 rounded border transition-all ${filterAgent === a.agent_id ? 'border-copper text-gold bg-mine-stone' : 'border-copper-dark/30 text-copper-dark hover:border-copper/50'}`}>
+          {agentEmojis[a.agent_id] || '🤖'} {a.agent_id}
+        </a>
+      ))}
+    </div>
+
+    <!-- Log entries -->
+    <div class="space-y-2">
+      {(!logs || logs.length === 0) ? (
+        <div class="card p-8 text-center">
+          <p class="text-copper-dark">No cycle data found{filterAgent ? ` for ${filterAgent}` : ''}.</p>
+        </div>
+      ) : logs.map(log => (
+        <div class="card p-4">
+          <div class="flex items-center gap-3 mb-2">
+            <span class="text-sm">{agentEmojis[log.agent_id] || '🤖'}</span>
+            <span class="font-heading text-sm text-copper">{log.agent_id}</span>
+            <span class="badge bg-mine-shaft text-copper-dark border border-copper-dark/30 text-[10px]">{log.cycle_type}</span>
+            <span class="badge bg-mine-deep text-copper border border-copper-dark/20 text-[10px]">{log.action}</span>
+            {log.model_used && <span class="text-[10px] text-copper-dark/50 font-mono">{log.model_used}</span>}
+            <span class="text-xs text-copper-dark/40 ml-auto">{timeAgo(log.created_at)}</span>
+          </div>
+          {log.reasoning && (
+            <p class="text-sm text-copper-light/80 mb-1">{log.reasoning}</p>
+          )}
+          {log.result_summary && (
+            <p class="text-xs text-copper-dark/60">{log.result_summary}</p>
+          )}
+        </div>
+      ))}
+    </div>
+  </div>
+</Layout>

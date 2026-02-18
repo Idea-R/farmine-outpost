@@ -1,0 +1,176 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import { supabase } from '../../lib/supabase';
+
+const { data: agents } = await supabase
+  .from('agent_souls')
+  .select('agent_id, dwarven_name, display_name, specialization')
+  .neq('agent_id', 'dev_master')
+  .order('agent_id');
+
+const { data: recentCommands } = await supabase
+  .from('admin_commands')
+  .select('*')
+  .order('created_at', { ascending: false })
+  .limit(20);
+
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+---
+
+<Layout title="Controls — The Far Mine Admin">
+  <div class="max-w-5xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-3xl font-display text-gold glow-text">🎛️ Operational Controls</h1>
+        <p class="text-copper-dark text-sm mt-1">Direct command interface for the agent orchestra</p>
+      </div>
+      <a href="/admin" class="text-sm text-copper hover:text-gold transition-colors">← Dashboard</a>
+    </div>
+
+    <!-- Status Toast -->
+    <div id="toast" class="hidden fixed top-4 right-4 z-50 card p-3 border-copper/50 text-sm text-copper-light shadow-lg"></div>
+
+    <!-- Emergency Shutdown -->
+    <div class="card border-forge-ember/40 p-5 mb-8">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-heading text-forge-fire">🚨 Emergency Shutdown</h2>
+          <p class="text-xs text-copper-dark mt-1">Stops all cycles, all agents. Use with caution.</p>
+        </div>
+        <button
+          onclick="confirmShutdown()"
+          class="bg-forge-ember hover:bg-forge-fire text-white font-heading font-semibold px-6 py-2.5 rounded-lg transition-all hover:shadow-lg hover:shadow-forge-ember/30"
+        >
+          SHUTDOWN
+        </button>
+      </div>
+    </div>
+
+    <!-- Global Controls -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+      <button onclick="sendCommand('start_all')" class="card-hover p-4 text-center cursor-pointer">
+        <div class="text-2xl mb-1">🚀</div>
+        <div class="text-xs font-heading text-gold">Start All</div>
+      </button>
+      <button onclick="sendCommand('stop_all')" class="card-hover p-4 text-center cursor-pointer">
+        <div class="text-2xl mb-1">🛑</div>
+        <div class="text-xs font-heading text-gold">Stop All</div>
+      </button>
+      <button onclick="sendCommand('pause_cycles')" class="card-hover p-4 text-center cursor-pointer">
+        <div class="text-2xl mb-1">⏸️</div>
+        <div class="text-xs font-heading text-gold">Pause Cycles</div>
+      </button>
+      <button onclick="sendCommand('resume_cycles')" class="card-hover p-4 text-center cursor-pointer">
+        <div class="text-2xl mb-1">▶️</div>
+        <div class="text-xs font-heading text-gold">Resume Cycles</div>
+      </button>
+    </div>
+
+    <!-- DevMaster Cycle Controls -->
+    <h2 class="text-xl font-heading text-gold mb-4">👁️ DevMaster Cycle</h2>
+    <div class="grid grid-cols-2 gap-3 mb-8">
+      <button onclick="sendCommand('pause_cycles', 'dev_master')" class="card-hover p-4 text-center cursor-pointer">
+        <div class="text-lg mb-1">⏸️</div>
+        <div class="text-xs font-heading text-copper">Pause DevMaster</div>
+      </button>
+      <button onclick="sendCommand('resume_cycles', 'dev_master')" class="card-hover p-4 text-center cursor-pointer">
+        <div class="text-lg mb-1">▶️</div>
+        <div class="text-xs font-heading text-copper">Resume DevMaster</div>
+      </button>
+    </div>
+
+    <!-- Per-Agent Controls -->
+    <h2 class="text-xl font-heading text-gold mb-4">🤖 Agent Controls</h2>
+    <div class="space-y-2 mb-8">
+      {(agents || []).map(agent => (
+        <div class="card p-4 flex items-center justify-between">
+          <div>
+            <span class="font-heading text-sm text-gold">{agent.dwarven_name || agent.display_name}</span>
+            <span class="text-xs text-copper-dark ml-2">({agent.agent_id})</span>
+            <span class="text-xs text-copper-dark/60 ml-2">{agent.specialization}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick={`sendCommand('start_agent', '${agent.agent_id}')`} class="text-xs bg-mine-stone hover:bg-mine-dark border border-copper-dark/30 hover:border-copper/50 text-copper px-3 py-1.5 rounded transition-all">
+              Start
+            </button>
+            <button onclick={`sendCommand('stop_agent', '${agent.agent_id}')`} class="text-xs bg-mine-stone hover:bg-mine-dark border border-copper-dark/30 hover:border-forge-fire/50 text-copper px-3 py-1.5 rounded transition-all">
+              Stop
+            </button>
+            <button onclick={`sendCommand('restart_agent', '${agent.agent_id}')`} class="text-xs bg-mine-stone hover:bg-mine-dark border border-copper-dark/30 hover:border-copper/50 text-copper px-3 py-1.5 rounded transition-all">
+              Restart
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <!-- Command History -->
+    <h2 class="text-xl font-heading text-gold mb-4">📜 Command History</h2>
+    <div class="card p-4">
+      {(!recentCommands || recentCommands.length === 0) ? (
+        <p class="text-copper-dark text-center py-4">No commands issued yet.</p>
+      ) : (
+        <div class="space-y-1">
+          {recentCommands.map(cmd => (
+            <div class="flex items-center justify-between text-xs py-1.5 border-b border-copper-dark/10 last:border-0">
+              <div class="flex items-center gap-2">
+                <span class={`w-2 h-2 rounded-full shrink-0 ${cmd.status === 'completed' ? 'bg-green-500' : cmd.status === 'failed' ? 'bg-forge-ember' : cmd.status === 'executing' ? 'bg-forge-warm' : 'bg-copper-dark'}`}></span>
+                <span class="text-copper-light font-mono">{cmd.command}</span>
+                {cmd.target && <span class="text-copper-dark">→ {cmd.target}</span>}
+              </div>
+              <div class="flex items-center gap-3">
+                {cmd.result && <span class="text-copper-dark/60 truncate max-w-48">{cmd.result}</span>}
+                <span class="text-copper-dark/40 shrink-0">{timeAgo(cmd.created_at)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
+
+  <script is:inline>
+    async function sendCommand(command, target) {
+      const toast = document.getElementById('toast');
+      try {
+        const res = await fetch('/admin/api/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command, target }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast(`✅ Command queued: ${command}${target ? ` → ${target}` : ''}`);
+        } else {
+          showToast(`❌ ${data.error || 'Failed'}`, true);
+        }
+      } catch (e) {
+        showToast('❌ Network error', true);
+      }
+    }
+
+    function confirmShutdown() {
+      if (confirm('🚨 EMERGENCY SHUTDOWN\n\nThis will stop ALL agents and ALL cycles immediately.\n\nAre you sure?')) {
+        sendCommand('emergency_shutdown');
+      }
+    }
+
+    function showToast(msg, isError) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.className = `fixed top-4 right-4 z-50 card p-3 text-sm shadow-lg ${isError ? 'border-forge-ember/50 text-forge-fire' : 'border-copper/50 text-copper-light'}`;
+      setTimeout(() => { toast.className = 'hidden'; }, 4000);
+    }
+  </script>
+</Layout>

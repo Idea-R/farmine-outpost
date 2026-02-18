@@ -1,0 +1,165 @@
+---
+export const prerender = false;
+
+import Layout from '../../../layouts/Layout.astro';
+import { supabase } from '../../../lib/supabase';
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/admin');
+
+// Fetch all agent data in parallel
+const [
+  { data: agent },
+  { data: memories },
+  { data: tasks },
+  { data: cycleLogs },
+  { data: introspections },
+] = await Promise.all([
+  supabase.from('agent_souls').select('*').eq('agent_id', id).single(),
+  supabase.from('episodic_memory').select('id, memory_text, memory_type, context, created_at').eq('agent_id', id).order('created_at', { ascending: false }).limit(20),
+  supabase.from('task_ledger').select('*').eq('assigned_to', id).order('created_at', { ascending: false }).limit(15),
+  supabase.from('cycle_log').select('*').eq('agent_id', id).order('created_at', { ascending: false }).limit(20),
+  supabase.from('introspection_log').select('*').eq('agent_id', id).order('created_at', { ascending: false }).limit(5),
+]);
+
+if (!agent) return Astro.redirect('/admin');
+
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+const statusColors: Record<string, string> = {
+  assigned: 'text-copper', in_progress: 'text-forge-warm', completed: 'text-green-400',
+  queued: 'text-copper-dark', cancelled: 'text-copper-dark/50'
+};
+---
+
+<Layout title={`${agent.dwarven_name || agent.display_name} — Admin`}>
+  <div class="max-w-5xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <a href="/admin" class="text-sm text-copper hover:text-gold transition-colors">← Dashboard</a>
+      <div class="flex items-center gap-2">
+        <a href={`/admin/activity?agent=${id}`} class="text-sm text-copper hover:text-gold transition-colors">Activity Log</a>
+      </div>
+    </div>
+
+    <!-- Agent Profile -->
+    <div class="card p-6 mb-8">
+      <div class="flex items-start gap-4">
+        <div class="text-4xl">{agent.emoji || '🤖'}</div>
+        <div class="flex-1">
+          <h1 class="text-2xl font-display text-gold">{agent.dwarven_name || agent.display_name}</h1>
+          <p class="text-sm text-copper mb-2">{agent.specialization}</p>
+          <div class="flex items-center gap-3 text-xs flex-wrap">
+            {agent.mood && <span class="badge-mood">{agent.mood}</span>}
+            {agent.catchphrase && <span class="text-copper-dark/60 italic">"{agent.catchphrase}"</span>}
+          </div>
+          {agent.signature && <p class="text-xs text-copper-dark/50 mt-2">{agent.signature}</p>}
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <!-- Recent Cycle Actions -->
+      <div>
+        <h2 class="text-xl font-heading text-gold mb-4">🔄 Recent Cycles</h2>
+        <div class="card p-4">
+          {(!cycleLogs || cycleLogs.length === 0) ? (
+            <p class="text-copper-dark text-center py-4">No cycle data yet.</p>
+          ) : (
+            <div class="space-y-2 max-h-80 overflow-y-auto">
+              {cycleLogs.map(log => (
+                <div class="py-2 border-b border-copper-dark/10 last:border-0">
+                  <div class="flex items-center gap-2 text-xs mb-1">
+                    <span class="badge bg-mine-deep text-copper border border-copper-dark/20 text-[10px]">{log.action}</span>
+                    {log.model_used && <span class="text-copper-dark/50 font-mono text-[10px]">{log.model_used}</span>}
+                    <span class="text-copper-dark/40 ml-auto">{timeAgo(log.created_at)}</span>
+                  </div>
+                  {log.reasoning && <p class="text-xs text-copper-light/70">{log.reasoning}</p>}
+                  {log.result_summary && <p class="text-xs text-copper-dark/50 mt-0.5">{log.result_summary}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <!-- Tasks -->
+      <div>
+        <h2 class="text-xl font-heading text-gold mb-4">📋 Tasks</h2>
+        <div class="card p-4">
+          {(!tasks || tasks.length === 0) ? (
+            <p class="text-copper-dark text-center py-4">No tasks.</p>
+          ) : (
+            <div class="space-y-2 max-h-80 overflow-y-auto">
+              {tasks.map(task => (
+                <div class="py-2 border-b border-copper-dark/10 last:border-0">
+                  <div class="flex items-center gap-2 text-xs mb-1">
+                    <span class={`font-mono ${statusColors[task.status] || 'text-copper-dark'}`}>[{task.status}]</span>
+                    <span class="text-copper-dark/50">P{task.priority}</span>
+                    <span class="text-copper-dark/40 ml-auto">{timeAgo(task.created_at)}</span>
+                  </div>
+                  <p class="text-xs text-copper-light/80">{task.task_description}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <!-- Recent Memories -->
+      <div>
+        <h2 class="text-xl font-heading text-gold mb-4">🧠 Recent Memories</h2>
+        <div class="card p-4">
+          {(!memories || memories.length === 0) ? (
+            <p class="text-copper-dark text-center py-4">No memories stored.</p>
+          ) : (
+            <div class="space-y-2 max-h-80 overflow-y-auto">
+              {memories.map(mem => (
+                <div class="py-2 border-b border-copper-dark/10 last:border-0">
+                  <div class="flex items-center gap-2 text-xs mb-1">
+                    <span class="badge bg-mine-shaft text-copper-dark border border-copper-dark/30 text-[10px]">{mem.memory_type}</span>
+                    <span class="text-copper-dark/40 ml-auto">{timeAgo(mem.created_at)}</span>
+                  </div>
+                  <p class="text-xs text-copper-light/70">{(mem.memory_text || '').substring(0, 300)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <!-- Introspection History -->
+      <div>
+        <h2 class="text-xl font-heading text-gold mb-4">🔮 Introspection</h2>
+        <div class="card p-4">
+          {(!introspections || introspections.length === 0) ? (
+            <p class="text-copper-dark text-center py-4">No introspection data.</p>
+          ) : (
+            <div class="space-y-3">
+              {introspections.map(intro => (
+                <div class="py-2 border-b border-copper-dark/10 last:border-0">
+                  <div class="flex items-center gap-2 text-xs mb-1">
+                    <span class="text-copper-dark">Mood: {intro.mood_before} → {intro.mood_after}</span>
+                    {intro.burnout_flag && <span class="text-forge-fire text-[10px]">🔥 BURNOUT</span>}
+                    <span class="text-copper-dark/40 ml-auto">{timeAgo(intro.created_at)}</span>
+                  </div>
+                  {intro.growth_goals && (
+                    <p class="text-xs text-copper-light/60">Goals: {Array.isArray(intro.growth_goals) ? intro.growth_goals.join(', ') : intro.growth_goals}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>

@@ -81,3 +81,15 @@ export async function getVaultUsage(limit = 50) {
   if (error) console.error('Failed to fetch vault usage:', error.message);
   return data || [];
 }
+
+// --- API Spend fetchers ---
+
+export async function getApiSpend(since: string) {
+  const { data, error } = await supabase
+    .from('api_spend')
+    .select('agent_id, model, provider, estimated_cost, input_tokens, output_tokens, reasoning_tokens, call_type, created_at')
+    .gte('created_at', since)
+    .order('created_at', { ascending: false });
+  if (error) console.error('Failed to fetch api spend:', error.message);
+  return data || [];
+}
