@@ -2,6 +2,7 @@
 export const prerender = false;
 
 import Layout from '../../layouts/Layout.astro';
+import AdminNav from '../../components/AdminNav.astro';
 import { supabase } from '../../lib/supabase';
 
 // Fetch recent prompts for history
@@ -25,14 +26,7 @@ function timeAgo(dateStr: string) {
 
 <Layout title="Command Center — The Far Mine">
   <div class="max-w-5xl mx-auto px-4 py-8">
-    <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
-      <div>
-        <a href="/admin" class="text-sm text-copper hover:text-gold transition-colors">← Dashboard</a>
-        <h1 class="text-2xl font-display text-gold glow-text mt-2">🎛️ DevMaster Command Center</h1>
-        <p class="text-copper-dark text-sm mt-1">Send prompts, upload files, and direct DevMaster from the web</p>
-      </div>
-    </div>
+    <AdminNav current="command" title="🏛️ DevMaster Command Center" subtitle="Send prompts, upload files, and direct DevMaster from the web" />
 
     <!-- Prompt Input -->
     <div class="card p-6 mb-6">

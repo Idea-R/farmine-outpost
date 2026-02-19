@@ -1,0 +1,230 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import AdminNav from '../../components/AdminNav.astro';
+import { supabase } from '../../lib/supabase';
+
+// Sprint 1 config
+const sprintStart = new Date('2025-02-19T00:00:00Z');
+const sprintEnd = new Date('2025-03-05T00:00:00Z');
+const now = new Date();
+const sprintDays = Math.ceil((sprintEnd.getTime() - sprintStart.getTime()) / (1000 * 60 * 60 * 24));
+const elapsed = Math.max(0, Math.ceil((now.getTime() - sprintStart.getTime()) / (1000 * 60 * 60 * 24)));
+const timeProgress = Math.min(100, Math.round((elapsed / sprintDays) * 100));
+
+const [
+  { data: agents },
+  { data: tasks },
+  { data: deliverables },
+  { data: blockers },
+  { data: recentCycles },
+] = await Promise.all([
+  supabase.from('agent_souls').select('agent_id, dwarven_name, display_name, specialization, emoji, mood').order('agent_id'),
+  supabase.from('task_ledger').select('id, assigned_to, task_description, status, priority, created_at, updated_at').gte('created_at', sprintStart.toISOString()),
+  supabase.from('blackboard').select('id, agent_id, entry_type, content, created_at').eq('entry_type', 'deliverable').gte('created_at', sprintStart.toISOString()),
+  supabase.from('blackboard').select('id, agent_id, entry_type, content, created_at, status').in('entry_type', ['blocker', 'escalation']).in('status', ['active', 'pending']).gte('created_at', sprintStart.toISOString()),
+  supabase.from('cycle_log').select('agent_id, created_at').gte('created_at', sprintStart.toISOString()),
+]);
+
+const allTasks = tasks || [];
+const completedTasks = allTasks.filter(t => t.status === 'completed');
+const taskCompletion = allTasks.length > 0 ? Math.round((completedTasks.length / allTasks.length) * 100) : 0;
+
+// Per-agent stats
+const agentStats = (agents || []).map(a => {
+  const agentTasks = allTasks.filter(t => t.assigned_to === a.agent_id);
+  const agentCompleted = agentTasks.filter(t => t.status === 'completed');
+  const agentDeliverables = (deliverables || []).filter(d => d.agent_id === a.agent_id);
+  const agentBlockers = (blockers || []).filter(b => b.agent_id === a.agent_id);
+  const agentCycles = (recentCycles || []).filter(c => c.agent_id === a.agent_id);
+  const lastActive = agentCycles.length > 0 ? agentCycles[0].created_at : null;
+
+  return {
+    ...a,
+    totalTasks: agentTasks.length,
+    completedTasks: agentCompleted.length,
+    activeTasks: agentTasks.filter(t => t.status === 'in_progress' || t.status === 'assigned').length,
+    deliverableCount: agentDeliverables.length,
+    blockerCount: agentBlockers.length,
+    blockerList: agentBlockers,
+    cycleCount: agentCycles.length,
+    lastActive,
+  };
+});
+
+const agentEmojis: Record<string, string> = {
+  alpha: '🏗️', beta: '🌍', gamma: '⚔️', delta: '🔧',
+  epsilon: '📖', zeta: '🎵', eta: '🎨', theta: '🍺', dev_master: '👁️'
+};
+
+function timeAgo(dateStr: string | null) {
+  if (!dateStr) return 'never';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+// Milestones (manual for Sprint 1)
+const milestones = [
+  { label: 'Agents online & cycling', target: 'Day 1', done: true },
+  { label: 'DevMaster strategic oversight active', target: 'Day 1', done: true },
+  { label: 'Blackboard populated with initial plans', target: 'Day 3', done: true },
+  { label: 'First deliverables produced', target: 'Day 5', done: (deliverables || []).length > 0 },
+  { label: 'All agents have active tasks', target: 'Day 7', done: agentStats.filter(a => a.agent_id !== 'dev_master').every(a => a.totalTasks > 0) },
+  { label: 'MVP GDD draft complete', target: 'Day 10', done: false },
+  { label: 'Sprint 1 review & retro', target: 'Day 14', done: false },
+];
+const milestoneDone = milestones.filter(m => m.done).length;
+const milestoneProgress = Math.round((milestoneDone / milestones.length) * 100);
+---
+
+<Layout title="Sprint Progress — The Far Mine">
+  <div class="max-w-7xl mx-auto px-4 py-8">
+    <AdminNav current="sprint" title="🏃 Sprint Progress" subtitle="Sprint 1 — The Outpost MVP" />
+
+    <!-- Sprint Overview -->
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
+      <div class="card p-4 text-center">
+        <div class="text-xs text-copper-dark mb-1">Time Elapsed</div>
+        <div class="text-2xl font-heading text-copper">{timeProgress}%</div>
+        <div class="text-[10px] text-copper-dark/50">Day {elapsed} of {sprintDays}</div>
+      </div>
+      <div class="card p-4 text-center">
+        <div class="text-xs text-copper-dark mb-1">Task Completion</div>
+        <div class={`text-2xl font-heading ${taskCompletion >= timeProgress ? 'text-green-400' : taskCompletion >= timeProgress - 20 ? 'text-copper' : 'text-forge-fire'}`}>
+          {taskCompletion}%
+        </div>
+        <div class="text-[10px] text-copper-dark/50">{completedTasks.length} / {allTasks.length} tasks</div>
+      </div>
+      <div class="card p-4 text-center">
+        <div class="text-xs text-copper-dark mb-1">Milestones</div>
+        <div class="text-2xl font-heading text-gold">{milestoneDone}/{milestones.length}</div>
+        <div class="text-[10px] text-copper-dark/50">{milestoneProgress}% complete</div>
+      </div>
+      <div class="card p-4 text-center">
+        <div class="text-xs text-copper-dark mb-1">Active Blockers</div>
+        <div class={`text-2xl font-heading ${(blockers || []).length > 0 ? 'text-forge-fire' : 'text-green-400'}`}>
+          {(blockers || []).length}
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress Bars -->
+    <div class="card p-5 mb-8">
+      <div class="mb-4">
+        <div class="flex justify-between text-xs text-copper-dark mb-1">
+          <span>Time Progress</span>
+          <span>{timeProgress}%</span>
+        </div>
+        <div class="w-full h-2 bg-mine-shaft rounded-full overflow-hidden">
+          <div class="h-full bg-copper-dark rounded-full transition-all" style={`width: ${timeProgress}%`}></div>
+        </div>
+      </div>
+      <div class="mb-4">
+        <div class="flex justify-between text-xs text-copper-dark mb-1">
+          <span>Task Completion</span>
+          <span>{taskCompletion}%</span>
+        </div>
+        <div class="w-full h-2 bg-mine-shaft rounded-full overflow-hidden">
+          <div class={`h-full rounded-full transition-all ${taskCompletion >= timeProgress ? 'bg-green-500' : 'bg-copper'}`} style={`width: ${taskCompletion}%`}></div>
+        </div>
+      </div>
+      <div>
+        <div class="flex justify-between text-xs text-copper-dark mb-1">
+          <span>Milestones</span>
+          <span>{milestoneProgress}%</span>
+        </div>
+        <div class="w-full h-2 bg-mine-shaft rounded-full overflow-hidden">
+          <div class="h-full bg-gold rounded-full transition-all" style={`width: ${milestoneProgress}%`}></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Milestones Checklist -->
+    <h2 class="text-xl font-heading text-gold mb-4">🏁 Milestones</h2>
+    <div class="card p-4 mb-8">
+      <div class="space-y-2">
+        {milestones.map(m => (
+          <div class="flex items-center gap-3 text-sm">
+            <span class={m.done ? 'text-green-400' : 'text-copper-dark/40'}>{m.done ? '✅' : '⬜'}</span>
+            <span class={m.done ? 'text-copper-light' : 'text-copper-dark'}>{m.label}</span>
+            <span class="text-[10px] text-copper-dark/40 ml-auto">{m.target}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <!-- Agent Status Cards -->
+    <h2 class="text-xl font-heading text-gold mb-4">🤖 Agent Sprint Status</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      {agentStats.map(a => {
+        const taskPct = a.totalTasks > 0 ? Math.round((a.completedTasks / a.totalTasks) * 100) : 0;
+        return (
+          <a href={`/admin/agents/${a.agent_id}`} class="card-hover p-4 block">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="text-lg">{agentEmojis[a.agent_id] || '🤖'}</span>
+              <div class="flex-1 min-w-0">
+                <div class="font-heading text-sm text-gold truncate">{a.dwarven_name || a.display_name}</div>
+                <div class="text-[10px] text-copper-dark">{a.specialization}</div>
+              </div>
+              {a.mood && <span class="badge-mood text-[10px]">{a.mood}</span>}
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center mb-3">
+              <div>
+                <div class="text-lg font-heading text-copper">{a.deliverableCount}</div>
+                <div class="text-[10px] text-copper-dark">Deliverables</div>
+              </div>
+              <div>
+                <div class="text-lg font-heading text-copper">{a.completedTasks}<span class="text-copper-dark/40 text-xs">/{a.totalTasks}</span></div>
+                <div class="text-[10px] text-copper-dark">Tasks</div>
+              </div>
+              <div>
+                <div class="text-lg font-heading text-copper">{a.cycleCount}</div>
+                <div class="text-[10px] text-copper-dark">Cycles</div>
+              </div>
+            </div>
+            {a.totalTasks > 0 && (
+              <div class="mb-2">
+                <div class="w-full h-1.5 bg-mine-shaft rounded-full overflow-hidden">
+                  <div class={`h-full rounded-full ${taskPct >= 50 ? 'bg-green-500' : 'bg-copper'}`} style={`width: ${taskPct}%`}></div>
+                </div>
+                <div class="text-[10px] text-copper-dark/50 mt-0.5">{taskPct}% tasks done</div>
+              </div>
+            )}
+            {a.blockerCount > 0 && (
+              <div class="text-[10px] text-forge-fire mt-1">⚠️ {a.blockerCount} blocker{a.blockerCount > 1 ? 's' : ''}</div>
+            )}
+            <div class="text-[10px] text-copper-dark/40 mt-1">Last active: {timeAgo(a.lastActive)}</div>
+          </a>
+        );
+      })}
+    </div>
+
+    <!-- Active Blockers Detail -->
+    {(blockers && blockers.length > 0) && (
+      <h2 class="text-xl font-heading text-forge-fire mb-4">⚠️ Active Blockers & Escalations</h2>
+      <div class="card p-4 mb-8">
+        <div class="space-y-2">
+          {blockers.map(b => (
+            <div class="flex items-start gap-3 py-2 border-b border-copper-dark/10 last:border-0">
+              <span class="text-sm">{agentEmojis[b.agent_id] || '🤖'}</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 text-xs">
+                  <span class="font-heading text-copper">{b.agent_id}</span>
+                  <span class="badge bg-forge-ember/20 text-forge-fire text-[10px] px-1">{b.entry_type}</span>
+                  <span class="text-copper-dark/40 ml-auto">{timeAgo(b.created_at)}</span>
+                </div>
+                <p class="text-xs text-copper-dark/70 mt-0.5">{b.content?.slice(0, 200)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+  </div>
+</Layout>

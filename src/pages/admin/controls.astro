@@ -2,6 +2,7 @@
 export const prerender = false;
 
 import Layout from '../../layouts/Layout.astro';
+import AdminNav from '../../components/AdminNav.astro';
 import { supabase } from '../../lib/supabase';
 
 const { data: agents } = await supabase
@@ -29,14 +30,7 @@ function timeAgo(dateStr: string) {
 
 <Layout title="Controls — The Far Mine Admin">
   <div class="max-w-5xl mx-auto px-4 py-8">
-    <!-- Header -->
-    <div class="flex items-center justify-between mb-8">
-      <div>
-        <h1 class="text-3xl font-display text-gold glow-text">🎛️ Operational Controls</h1>
-        <p class="text-copper-dark text-sm mt-1">Direct command interface for the agent orchestra</p>
-      </div>
-      <a href="/admin" class="text-sm text-copper hover:text-gold transition-colors">← Dashboard</a>
-    </div>
+    <AdminNav current="controls" title="🏛️ Operational Controls" subtitle="Direct command interface for the agent orchestra" />
 
     <!-- Status Toast -->
     <div id="toast" class="hidden fixed top-4 right-4 z-50 card p-3 border-copper/50 text-sm text-copper-light shadow-lg"></div>

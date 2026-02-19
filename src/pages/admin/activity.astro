@@ -2,23 +2,41 @@
 export const prerender = false;
 
 import Layout from '../../layouts/Layout.astro';
+import AdminNav from '../../components/AdminNav.astro';
 import { supabase } from '../../lib/supabase';
 
 // Get optional filter from query params
 const url = new URL(Astro.request.url);
 const filterAgent = url.searchParams.get('agent') || '';
 const filterType = url.searchParams.get('type') || '';
+const page = parseInt(url.searchParams.get('page') || '1');
+const perPage = 50;
 
-let query = supabase.from('cycle_log').select('*').order('created_at', { ascending: false }).limit(100);
+let query = supabase.from('cycle_log').select('*', { count: 'exact' }).order('created_at', { ascending: false });
 if (filterAgent) query = query.eq('agent_id', filterAgent);
 if (filterType) query = query.eq('cycle_type', filterType);
+query = query.range((page - 1) * perPage, page * perPage - 1);
 
-const { data: logs } = await query;
+const { data: logs, count: totalCount } = await query;
+const totalPages = Math.ceil((totalCount || 0) / perPage);
 
-const { data: agents } = await supabase
-  .from('agent_souls')
-  .select('agent_id, dwarven_name')
-  .order('agent_id');
+const [{ data: agents }, { data: cycleTypes }] = await Promise.all([
+  supabase.from('agent_souls').select('agent_id, dwarven_name').order('agent_id'),
+  supabase.from('cycle_log').select('cycle_type'),
+]);
+const uniqueCycleTypes = [...new Set((cycleTypes || []).map(c => c.cycle_type))].sort();
+
+function buildQs(overrides: Record<string, string> = {}) {
+  const params = new URLSearchParams();
+  const a = overrides.agent ?? filterAgent;
+  const t = overrides.type ?? filterType;
+  const p = overrides.page ?? String(page);
+  if (a) params.set('agent', a);
+  if (t) params.set('type', t);
+  if (p !== '1') params.set('page', p);
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -38,22 +56,28 @@ const agentEmojis: Record<string, string> = {
 
 <Layout title="Activity Feed — The Far Mine Admin">
   <div class="max-w-5xl mx-auto px-4 py-8">
-    <div class="flex items-center justify-between mb-6">
-      <div>
-        <h1 class="text-3xl font-display text-gold glow-text">📋 Activity Feed</h1>
-        <p class="text-copper-dark text-sm mt-1">Agent reasoning and cycle decisions</p>
-      </div>
-      <a href="/admin" class="text-sm text-copper hover:text-gold transition-colors">← Dashboard</a>
-    </div>
+    <AdminNav current="activity" title="📋 Activity Feed" subtitle="Agent reasoning and cycle decisions" />
 
     <!-- Filters -->
-    <div class="flex items-center gap-3 mb-6 flex-wrap">
+    <div class="flex items-center gap-3 mb-4 flex-wrap">
       <a href="/admin/activity" class={`text-xs px-3 py-1.5 rounded border transition-all ${!filterAgent && !filterType ? 'border-copper text-gold bg-mine-stone' : 'border-copper-dark/30 text-copper-dark hover:border-copper/50'}`}>All</a>
       {(agents || []).map(a => (
-        <a href={`/admin/activity?agent=${a.agent_id}`} class={`text-xs px-3 py-1.5 rounded border transition-all ${filterAgent === a.agent_id ? 'border-copper text-gold bg-mine-stone' : 'border-copper-dark/30 text-copper-dark hover:border-copper/50'}`}>
+        <a href={`/admin/activity${buildQs({ agent: a.agent_id, page: '1' })}`} class={`text-xs px-3 py-1.5 rounded border transition-all ${filterAgent === a.agent_id ? 'border-copper text-gold bg-mine-stone' : 'border-copper-dark/30 text-copper-dark hover:border-copper/50'}`}>
           {agentEmojis[a.agent_id] || '🤖'} {a.agent_id}
         </a>
       ))}
+    </div>
+    <div class="flex items-center gap-3 mb-6 flex-wrap">
+      <span class="text-xs text-copper-dark">Cycle type:</span>
+      <a href={`/admin/activity${buildQs({ type: '', page: '1' })}`}
+         class={`text-xs px-2 py-1 rounded border transition-all ${!filterType ? 'border-copper text-gold bg-mine-stone' : 'border-copper-dark/30 text-copper-dark hover:border-copper/50'}`}>All</a>
+      {uniqueCycleTypes.map(ct => (
+        <a href={`/admin/activity${buildQs({ type: ct, page: '1' })}`}
+           class={`text-xs px-2 py-1 rounded border transition-all ${filterType === ct ? 'border-copper text-gold bg-mine-stone' : 'border-copper-dark/30 text-copper-dark hover:border-copper/50'}`}>
+          {ct}
+        </a>
+      ))}
+      <span class="text-xs text-copper-dark/40 ml-auto">{totalCount || 0} entries</span>
     </div>
 
     <!-- Log entries -->
@@ -81,5 +105,20 @@ const agentEmojis: Record<string, string> = {
         </div>
       ))}
     </div>
+
+    <!-- Pagination -->
+    {totalPages > 1 && (
+      <div class="flex items-center justify-center gap-2 mt-8">
+        {page > 1 && (
+          <a href={`/admin/activity${buildQs({ page: String(page - 1) })}`}
+             class="text-sm text-copper hover:text-gold px-3 py-1 card-hover">← Prev</a>
+        )}
+        <span class="text-xs text-copper-dark">Page {page} of {totalPages}</span>
+        {page < totalPages && (
+          <a href={`/admin/activity${buildQs({ page: String(page + 1) })}`}
+             class="text-sm text-copper hover:text-gold px-3 py-1 card-hover">Next →</a>
+        )}
+      </div>
+    )}
   </div>
 </Layout>

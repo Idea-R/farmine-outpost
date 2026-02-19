@@ -2,12 +2,14 @@
 export const prerender = false;
 
 import Layout from '../../layouts/Layout.astro';
+import AdminNav from '../../components/AdminNav.astro';
 import { supabase } from '../../lib/supabase';
 
 // Fetch dashboard data in parallel
 const now = new Date();
 const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
 const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
 const [
   { data: agents },
@@ -17,6 +19,9 @@ const [
   { data: pendingTasks },
   { data: recentCommands },
   { data: rapportData },
+  { data: recentBlackboard },
+  { data: completedTasks24h },
+  { data: pendingEscalations },
 ] = await Promise.all([
   supabase.from('agent_souls').select('agent_id, dwarven_name, display_name, specialization, emoji, mood').order('agent_id'),
   supabase.from('cycle_log').select('*').order('created_at', { ascending: false }).limit(25),
@@ -25,7 +30,18 @@ const [
   supabase.from('task_ledger').select('id, assigned_to, task_description, status, priority').in('status', ['assigned', 'in_progress']).order('priority', { ascending: false }).limit(10),
   supabase.from('admin_commands').select('*').order('created_at', { ascending: false }).limit(5),
   supabase.from('rapport_matrix').select('agent_a, agent_b, rapport_score, trust_level, total_collaborations, last_interaction_at').order('rapport_score', { ascending: false }),
+  supabase.from('blackboard').select('id, agent_id, entry_type, content, created_at').gte('created_at', last24h).order('created_at', { ascending: false }),
+  supabase.from('task_ledger').select('id, assigned_to, task_description, status').eq('status', 'completed').gte('updated_at', last24h).order('updated_at', { ascending: false }),
+  supabase.from('blackboard').select('id, agent_id, entry_type, content, created_at').in('entry_type', ['question', 'request', 'escalation', 'blocker']).in('status', ['active', 'pending']).order('created_at', { ascending: false }).limit(10),
 ]);
+
+// Aggregate 24h blackboard by type
+const bb24h = recentBlackboard || [];
+const bbByType: Record<string, number> = {};
+for (const entry of bb24h) {
+  bbByType[entry.entry_type] = (bbByType[entry.entry_type] || 0) + 1;
+}
+const deliverables24h = bb24h.filter(e => e.entry_type === 'deliverable' || (e.content && e.content.includes('File created')));
 
 const todayTotal = (todaySpend || []).reduce((s, r) => s + (r.estimated_cost || 0), 0);
 const weekTotal = (weekSpend || []).reduce((s, r) => s + (r.estimated_cost || 0), 0);
@@ -48,23 +64,7 @@ const agentEmojis: Record<string, string> = {
 
 <Layout title="Admin Dashboard — The Far Mine">
   <div class="max-w-7xl mx-auto px-4 py-8">
-    <!-- Header -->
-    <div class="flex items-center justify-between mb-8">
-      <div>
-        <h1 class="text-3xl font-display text-gold glow-text">⛏️ Command Chamber</h1>
-        <p class="text-copper-dark text-sm mt-1">Operational overview of The Far Mine orchestra</p>
-      </div>
-      <div class="flex items-center gap-4">
-        <a href="/admin/activity" class="text-sm text-copper hover:text-gold transition-colors">Activity</a>
-        <a href="/admin/controls" class="text-sm text-copper hover:text-gold transition-colors">Controls</a>
-        <a href="/admin/spend" class="text-sm text-copper hover:text-gold transition-colors">Spend</a>
-        <a href="/admin/assets" class="text-sm text-copper hover:text-gold transition-colors">Assets</a>
-        <a href="/admin/command" class="text-sm text-copper hover:text-gold transition-colors">Command</a>
-        <form method="POST" action="/admin/api/logout" class="inline">
-          <button type="submit" class="text-sm text-copper-dark hover:text-forge-fire transition-colors">Logout</button>
-        </form>
-      </div>
-    </div>
+    <AdminNav current="dashboard" title="⛏️ Command Chamber" subtitle="Operational overview of The Far Mine orchestra" />
 
     <!-- Spend Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -82,6 +82,67 @@ const agentEmojis: Record<string, string> = {
         <div class="text-xs text-copper-dark mb-1">Active Tasks</div>
         <div class="text-2xl font-heading text-copper">{(pendingTasks || []).length}</div>
       </div>
+    </div>
+
+    <!-- What's New 24h -->
+    <div class="card p-5 mb-8">
+      <h2 class="text-lg font-heading text-gold mb-3">🆕 What's New (Last 24h)</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3">
+        <div>
+          <div class="text-xs text-copper-dark mb-1">Blackboard Entries</div>
+          <div class="text-xl font-heading text-copper">{bb24h.length}</div>
+          {Object.keys(bbByType).length > 0 && (
+            <div class="flex flex-wrap gap-1 mt-1">
+              {Object.entries(bbByType).map(([type, count]) => (
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-mine-shaft border border-copper-dark/20 text-copper-dark">
+                  {type}: {count}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div>
+          <div class="text-xs text-copper-dark mb-1">Deliverables</div>
+          <div class="text-xl font-heading text-copper">{deliverables24h.length}</div>
+          {deliverables24h.length > 0 && (
+            <div class="mt-1 space-y-0.5">
+              {deliverables24h.slice(0, 3).map(d => (
+                <p class="text-[10px] text-copper-dark/70 truncate">
+                  {agentEmojis[d.agent_id] || '🤖'} {d.content?.slice(0, 60)}
+                </p>
+              ))}
+              {deliverables24h.length > 3 && <p class="text-[10px] text-copper-dark/40">+{deliverables24h.length - 3} more</p>}
+            </div>
+          )}
+        </div>
+        <div>
+          <div class="text-xs text-copper-dark mb-1">Tasks Completed</div>
+          <div class="text-xl font-heading text-copper">{(completedTasks24h || []).length}</div>
+          {(completedTasks24h || []).length > 0 && (
+            <div class="mt-1 space-y-0.5">
+              {(completedTasks24h || []).slice(0, 3).map(t => (
+                <p class="text-[10px] text-copper-dark/70 truncate">
+                  {agentEmojis[t.assigned_to] || '🤖'} {t.task_description?.slice(0, 60)}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      {(pendingEscalations && pendingEscalations.length > 0) && (
+        <div class="border-t border-copper-dark/20 pt-3 mt-2">
+          <div class="text-xs text-forge-fire mb-1">⚠️ Pending Escalations / Blockers ({pendingEscalations.length})</div>
+          <div class="space-y-1">
+            {pendingEscalations.slice(0, 5).map(e => (
+              <div class="flex items-center gap-2 text-xs">
+                <span>{agentEmojis[e.agent_id] || '🤖'}</span>
+                <span class="badge bg-forge-ember/20 text-forge-fire text-[10px] px-1">{e.entry_type}</span>
+                <span class="text-copper-dark/70 truncate">{e.content?.slice(0, 80)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
 
     <!-- Agent Grid -->

@@ -1,0 +1,39 @@
+---
+interface Props {
+  current?: string;
+  title: string;
+  subtitle?: string;
+}
+
+const { current = '', title, subtitle } = Astro.props;
+
+const links = [
+  { href: '/admin', label: 'Dashboard', key: 'dashboard' },
+  { href: '/admin/activity', label: 'Activity', key: 'activity' },
+  { href: '/admin/controls', label: 'Controls', key: 'controls' },
+  { href: '/admin/spend', label: 'Spend', key: 'spend' },
+  { href: '/admin/assets', label: 'Assets', key: 'assets' },
+  { href: '/admin/command', label: 'Command', key: 'command' },
+  { href: '/admin/sprint', label: 'Sprint', key: 'sprint' },
+];
+---
+
+<div class="flex items-center justify-between mb-8 flex-wrap gap-4">
+  <div>
+    <h1 class="text-3xl font-display text-gold glow-text">{title}</h1>
+    {subtitle && <p class="text-copper-dark text-sm mt-1">{subtitle}</p>}
+  </div>
+  <div class="flex items-center gap-4 flex-wrap">
+    {links.map(link => (
+      <a
+        href={link.href}
+        class={`text-sm transition-colors ${current === link.key ? 'text-gold font-heading' : 'text-copper hover:text-gold'}`}
+      >
+        {link.label}
+      </a>
+    ))}
+    <form method="POST" action="/admin/api/logout" class="inline">
+      <button type="submit" class="text-sm text-copper-dark hover:text-forge-fire transition-colors">Logout</button>
+    </form>
+  </div>
+</div>

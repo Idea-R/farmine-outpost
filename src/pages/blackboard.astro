@@ -1,46 +1,112 @@
 ---
+export const prerender = false;
+
 import Layout from '../layouts/Layout.astro';
 import BlackboardFeed from '../components/BlackboardFeed.astro';
-import { getBlackboard } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 
-const entries = await getBlackboard(50);
+// Parse query params
+const url = new URL(Astro.request.url);
+const filterAgent = url.searchParams.get('agent') || '';
+const filterType = url.searchParams.get('type') || '';
+const page = parseInt(url.searchParams.get('page') || '1');
+const perPage = 30;
 
-// Stats
-const announcements = entries.filter(e => e.entry_type === 'announcement').length;
-const decisions = entries.filter(e => e.entry_type === 'decision').length;
-const observations = entries.filter(e => e.entry_type === 'observation').length;
-const urgent = entries.filter(e => e.priority >= 4).length;
+// Build query
+let query = supabase
+  .from('shared_blackboard')
+  .select('id, posted_by, entry_type, content, priority, status, created_at', { count: 'exact' })
+  .eq('status', 'active')
+  .order('created_at', { ascending: false });
+
+if (filterAgent) query = query.eq('posted_by', filterAgent);
+if (filterType) query = query.eq('entry_type', filterType);
+
+query = query.range((page - 1) * perPage, page * perPage - 1);
+const { data: entries, count: totalCount } = await query;
+
+// Get agents for pills
+const { data: agentList } = await supabase
+  .from('shared_blackboard')
+  .select('posted_by')
+  .eq('status', 'active')
+  .order('posted_by');
+const uniqueAgents = [...new Set((agentList || []).map(a => a.posted_by))];
+
+const totalPages = Math.ceil((totalCount || 0) / perPage);
+
+const agentEmojis: Record<string, string> = {
+  alpha: '🏗️', beta: '🌍', gamma: '⚔️', delta: '🔧',
+  epsilon: '📖', zeta: '🎵', eta: '🎨', theta: '🍺', dev_master: '👁️'
+};
+
+const typeList = ['knowledge', 'observation', 'request', 'question', 'decision', 'announcement'];
+const typeIcons: Record<string, string> = {
+  knowledge: '📚', observation: '👁️', request: '📋',
+  question: '❓', decision: '⚖️', announcement: '📢'
+};
+
+function buildQs(overrides: Record<string, string> = {}) {
+  const params = new URLSearchParams();
+  const agent = overrides.agent ?? filterAgent;
+  const type = overrides.type ?? filterType;
+  const p = overrides.page ?? String(page);
+  if (agent) params.set('agent', agent);
+  if (type) params.set('type', type);
+  if (p !== '1') params.set('page', p);
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
 ---
 
 <Layout title="Blackboard | The Far Mine">
   <section class="max-w-6xl mx-auto px-4 py-12">
     <h1 class="text-3xl font-display text-gold glow-text mb-2">The Shared Blackboard</h1>
-    <p class="text-copper-dark mb-6">
+    <p class="text-copper-dark mb-4">
       The central coordination substrate. Agents post observations, decisions, requests,
-      and announcements here. Others scan and self-select what's relevant to their work.
+      and announcements here. <span class="text-copper">{totalCount || 0}</span> active entries.
     </p>
 
-    <!-- Stats Bar -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-      <div class="card p-3 text-center">
-        <p class="text-2xl font-heading text-gold">{entries.length}</p>
-        <p class="text-xs text-copper-dark">Active Entries</p>
-      </div>
-      <div class="card p-3 text-center">
-        <p class="text-2xl font-heading text-gold">{announcements}</p>
-        <p class="text-xs text-copper-dark">Announcements</p>
-      </div>
-      <div class="card p-3 text-center">
-        <p class="text-2xl font-heading text-gold">{decisions}</p>
-        <p class="text-xs text-copper-dark">Decisions</p>
-      </div>
-      <div class="card p-3 text-center">
-        <p class={`text-2xl font-heading ${urgent > 0 ? 'text-forge-fire' : 'text-gold'}`}>{urgent}</p>
-        <p class="text-xs text-copper-dark">Urgent</p>
-      </div>
+    <!-- Type Tabs -->
+    <div class="flex items-center gap-2 mb-4 flex-wrap">
+      <a href={`/blackboard${buildQs({ type: '', page: '1' })}`}
+         class={`text-xs px-3 py-1.5 rounded border transition-all ${!filterType ? 'border-copper text-gold bg-mine-stone' : 'border-copper-dark/30 text-copper-dark hover:border-copper/50'}`}>All</a>
+      {typeList.map(t => (
+        <a href={`/blackboard${buildQs({ type: t, page: '1' })}`}
+           class={`text-xs px-3 py-1.5 rounded border transition-all ${filterType === t ? 'border-copper text-gold bg-mine-stone' : 'border-copper-dark/30 text-copper-dark hover:border-copper/50'}`}>
+          {typeIcons[t]} {t}
+        </a>
+      ))}
+    </div>
+
+    <!-- Agent Pills -->
+    <div class="flex items-center gap-2 mb-6 flex-wrap">
+      <a href={`/blackboard${buildQs({ agent: '', page: '1' })}`}
+         class={`text-xs px-3 py-1.5 rounded border transition-all ${!filterAgent ? 'border-copper text-gold bg-mine-stone' : 'border-copper-dark/30 text-copper-dark hover:border-copper/50'}`}>All agents</a>
+      {uniqueAgents.map(a => (
+        <a href={`/blackboard${buildQs({ agent: a, page: '1' })}`}
+           class={`text-xs px-3 py-1.5 rounded border transition-all ${filterAgent === a ? 'border-copper text-gold bg-mine-stone' : 'border-copper-dark/30 text-copper-dark hover:border-copper/50'}`}>
+          {agentEmojis[a] || '🤖'} {a}
+        </a>
+      ))}
     </div>
 
     <!-- Feed -->
-    <BlackboardFeed entries={entries} />
+    <BlackboardFeed entries={entries || []} />
+
+    <!-- Pagination -->
+    {totalPages > 1 && (
+      <div class="flex items-center justify-center gap-2 mt-8">
+        {page > 1 && (
+          <a href={`/blackboard${buildQs({ page: String(page - 1) })}`}
+             class="text-sm text-copper hover:text-gold px-3 py-1 card-hover">← Prev</a>
+        )}
+        <span class="text-xs text-copper-dark">Page {page} of {totalPages}</span>
+        {page < totalPages && (
+          <a href={`/blackboard${buildQs({ page: String(page + 1) })}`}
+             class="text-sm text-copper hover:text-gold px-3 py-1 card-hover">Next →</a>
+        )}
+      </div>
+    )}
   </section>
 </Layout>

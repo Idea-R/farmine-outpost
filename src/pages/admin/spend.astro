@@ -2,6 +2,7 @@
 export const prerender = false;
 
 import Layout from '../../layouts/Layout.astro';
+import AdminNav from '../../components/AdminNav.astro';
 import { getApiSpend } from '../../lib/supabase';
 
 // Auth is handled by middleware — if we're here, user is authenticated.
@@ -56,13 +57,7 @@ function sortedEntries(obj: Record<string, { cost: number; calls: number }>) {
 
 <Layout title="API Spend — The Far Mine Admin">
   <div class="max-w-6xl mx-auto px-4 py-8">
-    <div class="flex items-center justify-between mb-8">
-      <div>
-        <h1 class="text-3xl font-display text-gold glow-text">💰 API Spend Dashboard</h1>
-        <p class="text-copper-dark text-sm mt-1">Real-time cost tracking for the agent orchestra</p>
-      </div>
-      <a href="/admin" class="text-sm text-copper hover:text-gold transition-colors">← Dashboard</a>
-    </div>
+    <AdminNav current="spend" title="💰 API Spend Dashboard" subtitle="Real-time cost tracking for the agent orchestra" />
 
     <!-- Summary Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12">
