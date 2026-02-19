@@ -8,6 +8,7 @@ const VALID_COMMANDS = [
   'stop_all', 'start_all',
   'pause_cycles', 'resume_cycles',
   'emergency_shutdown',
+  'prompt',
 ];
 
 export const POST: APIRoute = async ({ request, cookies }) => {
