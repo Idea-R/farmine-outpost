@@ -16,7 +16,7 @@ const [
   { data: introspections },
 ] = await Promise.all([
   supabase.from('agent_souls').select('*').eq('agent_id', id).single(),
-  supabase.from('episodic_memory').select('id, memory_text, memory_type, context, created_at').eq('agent_id', id).order('created_at', { ascending: false }).limit(20),
+  supabase.from('episodic_memory').select('id, content, memory_type, context, created_at').eq('agent_id', id).order('created_at', { ascending: false }).limit(20),
   supabase.from('task_ledger').select('*').eq('assigned_to', id).order('created_at', { ascending: false }).limit(15),
   supabase.from('cycle_log').select('*').eq('agent_id', id).order('created_at', { ascending: false }).limit(20),
   supabase.from('introspection_log').select('*').eq('agent_id', id).order('created_at', { ascending: false }).limit(5),
@@ -128,7 +128,7 @@ const statusColors: Record<string, string> = {
                     <span class="badge bg-mine-shaft text-copper-dark border border-copper-dark/30 text-[10px]">{mem.memory_type}</span>
                     <span class="text-copper-dark/40 ml-auto">{timeAgo(mem.created_at)}</span>
                   </div>
-                  <p class="text-xs text-copper-light/70">{(mem.memory_text || '').substring(0, 300)}</p>
+                  <p class="text-xs text-copper-light/70">{(mem.content || '').substring(0, 300)}</p>
                 </div>
               ))}
             </div>
